@@ -1,13 +1,10 @@
 ﻿/* http://keith-wood.name/more.html
-   Text truncation and show more for jQuery v1.0.0.
+   Text truncation and show more for jQuery v1.1.0.
    Written by Keith Wood (kwood{at}iinet.com.au) May 2010.
-   Dual licensed under the GPL (http://dev.jquery.com/browser/trunk/jquery/GPL-LICENSE.txt) and 
-   MIT (http://dev.jquery.com/browser/trunk/jquery/MIT-LICENSE.txt) licenses. 
+   Available under the MIT (https://github.com/jquery/jquery/blob/master/MIT-LICENSE.txt) license. 
    Please attribute the author if you use it. */
 
 (function($) { // Hide scope, no $ conflict
-
-var PROP_NAME = 'more';
 
 /* More manager. */
 function More() {
@@ -26,71 +23,85 @@ function More() {
 $.extend(More.prototype, {
 	/* Class name added to elements to indicate already configured with more. */
 	markerClassName: 'hasMore',
+	/* Name of the data property for instance settings. */
+	propertyName: 'more',
+
+	_ellipsisClass: 'more-ellipsis', // The ellipsis marker class
+	_linkClass: 'more-link', // The link marker class
+	_showingClass: 'more-showing', // The text showing marker class
+	_hiddenClass: 'more-hidden', // The text hidden marker class
 
 	/* Override the default settings for all more instances.
-	   @param  settings  (object) the new settings to use as defaults
+	   @param  options  (object) the new settings to use as defaults
 	   @return  (More) this object */
-	setDefaults: function(settings) {
-		$.extend(this._defaults, settings || {});
+	setDefaults: function(options) {
+		$.extend(this._defaults, options || {});
 		return this;
 	},
 
 	/* Attach the more functionality to a paragraph.
-	   @param  target    (element) the element to affect
-	   @param  settings  (object) the custom options for this instance */
-	_attachMore: function(target, settings) {
+	   @param  target   (element) the element to affect
+	   @param  options  (object) the custom options for this instance */
+	_attachPlugin: function(target, options) {
 		target = $(target);
 		if (target.hasClass(this.markerClassName)) {
 			return;
 		}
-		target.addClass(this.markerClassName);
-		var inst = {settings: $.extend({}, this._defaults)};
-		$.data(target[0], PROP_NAME, inst);
-		this._changeMore(target, settings);
+		var inst = {options: $.extend({}, this._defaults)};
+		target.addClass(this.markerClassName).data(this.propertyName, inst);
+		this._optionPlugin(target, options);
 	},
 
-	/* Reconfigure the settings for a more element.
-	   @param  target    (element) the element to affect
-	   @param  settings  (object) the new options for this instance or
-	                     (string) an individual property name
-	   @param  value     (any) the individual property value (omit if settings is an object) */
-	_changeMore: function(target, settings, value) {
+	/* Retrieve or reconfigure the settings for a control.
+	   @param  target   (element) the control to affect
+	   @param  options  (object) the new options for this instance or
+	                    (string) an individual property name
+	   @param  value    (any) the individual property value (omit if options
+	                    is an object or to retrieve the value of a setting)
+	   @return  (any) if retrieving a value */
+	_optionPlugin: function(target, options, value) {
 		target = $(target);
+		var inst = target.data(this.propertyName);
+		if (!options || (typeof options == 'string' && value == null)) { // Get option
+			var name = options;
+			options = (inst || {}).options;
+			return (options && name ? options[name] : options);
+		}
+
 		if (!target.hasClass(this.markerClassName)) {
 			return;
 		}
-		settings = settings || {};
-		if (typeof settings == 'string') {
-			var name = settings;
-			settings = {};
-			settings[name] = value;
+		options = options || {};
+		if (typeof options == 'string') {
+			var name = options;
+			options = {};
+			options[name] = value;
 		}
-		var inst = $.data(target[0], PROP_NAME);
-		$.extend(inst.settings, settings);
-		target.find('span.more-ellipsis,a.more-link').remove().end().
+		$.extend(inst.options, options);
+		target.find('span.' + this._ellipsisClass + ',a.' + this._linkClass).remove().end().
 			text(target.text());
 		var text = target.text();
-		if (text.length > inst.settings.length + inst.settings.leeway) {
-			var pos = inst.settings.length;
-			if (inst.settings.wordBreak) {
-				var matches = text.substring(0, inst.settings.length + 1).
+		if (text.length > inst.options.length + inst.options.leeway) {
+			var pos = inst.options.length;
+			if (inst.options.wordBreak) {
+				var matches = text.substring(0, inst.options.length + 1).
 					replace('\n', ' ').match(/^.*\W/m);
 				pos = (matches ? matches[0].length - 1 : pos);
 			}
-			var html = '<span class="more-showing">' + text.substring(0, pos) +
-				'</span><span class="more-ellipsis">' + inst.settings.ellipsisText + '</span>' +
-				'<span class="more-hidden">' + text.substring(pos) + '</span>' +
-				'<a href="#" class="more-link">' + inst.settings.moreText + '</a>';
+			var html = '<span class="' + this._showingClass + '">' + text.substring(0, pos) +
+				'</span><span class="' + this._ellipsisClass + '">' + inst.options.ellipsisText + '</span>' +
+				'<span class="' + this._hiddenClass + '">' + text.substring(pos) + '</span>' +
+				'<a href="#" class="' + this._linkClass + '">' + inst.options.moreText + '</a>';
 			target.empty().append(html).find('a').click(function(event) {
 				var link = $(this);
-				var expanding = link.html() == inst.settings.moreText;
-				link.html(expanding ? inst.settings.lessText : inst.settings.moreText).
-					siblings('span.more-ellipsis,span.more-hidden').toggle();
-				if (!inst.settings.toggle) {
+				var expanding = link.html() == inst.options.moreText;
+				link.html(expanding ? inst.options.lessText : inst.options.moreText).
+					siblings('span.' + plugin._ellipsisClass + ',span.' + plugin._hiddenClass).toggle();
+				if (!inst.options.toggle) {
 					link.remove();
 				}
-				if (inst.settings.onChange) {
-					inst.settings.onChange.apply(target, [expanding]);
+				if ($.isFunction(inst.options.onChange)) {
+					inst.options.onChange.apply(target, [expanding]);
 				}
 				event.stopPropagation();
 				return false;
@@ -98,53 +109,58 @@ $.extend(More.prototype, {
 		}
 	},
 
-	/* Remove the more functionality from an element.
+	/* Remove the plugin functionality from a control.
 	   @param  target  (element) the element to affect */
-	_destroyMore: function(target) {
+	_destroyPlugin: function(target) {
 		target = $(target);
 		if (!target.hasClass(this.markerClassName)) {
 			return;
 		}
-		target.removeClass(this.markerClassName).
-			find('span.more-ellipsis,a.more-link').remove().end().
+		target.removeClass(this.markerClassName).removeData(this.propertyName).
+			find('span.' + this._ellipsisClass + ',a.' + this._linkClass).remove().end().
 			text(target.text());
-		$.removeData(target[0], PROP_NAME);
-	},
-
-	/* Retrieve the current instance settings.
-	   @param  target  (element) the element to check
-	   @return  (object) the current instance settings */
-	_settingsMore: function(target) {
-		var inst = $.data(target, PROP_NAME);
-		return inst.settings;
 	}
 });
 
 // The list of commands that return values and don't permit chaining
-var getters = ['settings'];
+var getters = [''];
+
+/* Determine whether a command is a getter and doesn't permit chaining.
+   @param  command    (string, optional) the command to run
+   @param  otherArgs  ([], optional) any other arguments for the command
+   @return  true if the command is a getter, false if not */
+function isNotChained(command, otherArgs) {
+	if (command == 'option' && (otherArgs.length == 0 ||
+			(otherArgs.length == 1 && typeof otherArgs[0] == 'string'))) {
+		return true;
+	}
+	return $.inArray(command, getters) > -1;
+}
 
 /* Attach the more functionality to a jQuery selection.
-   @param  command  (string) the command to run (optional, default 'attach')
-   @param  options  (object) the new settings to use for these instances (optional)
-   @return  (jQuery) for chaining further calls */
+   @param  options  (object) the new settings to use for these instances (optional) or
+                    (string) the command to run (optional)
+   @return  (jQuery) for chaining further calls or
+            (any) getter value */
 $.fn.more = function(options) {
 	var otherArgs = Array.prototype.slice.call(arguments, 1);
-	if ($.inArray(options, getters) > -1) {
-		return $.more['_' + options + 'More'].
-			apply($.more, [this[0]].concat(otherArgs));
+	if (isNotChained(options, otherArgs)) {
+		return plugin['_' + options + 'Plugin'].apply(plugin, [this[0]].concat(otherArgs));
 	}
 	return this.each(function() {
 		if (typeof options == 'string') {
-			$.more['_' + options + 'More'].
-				apply($.more, [this].concat(otherArgs));
+			if (!plugin['_' + options + 'Plugin']) {
+				throw 'Unknown command: ' + options;
+			}
+			plugin['_' + options + 'Plugin'].apply(plugin, [this].concat(otherArgs));
 		}
 		else {
-			$.more._attachMore(this, options || {});
+			plugin._attachPlugin(this, options || {});
 		}
 	});
 };
 
 /* Initialise the more functionality. */
-$.more = new More(); // singleton instance
+var plugin = $.more = new More(); // Singleton instance
 
 })(jQuery);
