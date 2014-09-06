@@ -1,7 +1,7 @@
 ﻿/* http://keith-wood.name/more.html
-   Text truncation and show more for jQuery v2.0.0.
+   Text truncation and show more for jQuery v2.0.1.
    Written by Keith Wood (kwood{at}iinet.com.au) May 2010.
-   Available under the MIT (https://github.com/jquery/jquery/blob/master/MIT-LICENSE.txt) license. 
+   Available under the MIT (https://github.com/jquery/jquery/blob/master/LICENSE.txt) license. 
    Please attribute the author if you use it. */
 
 (function($) { // Hide scope, no $ conflict
@@ -37,20 +37,22 @@
 			@property [ellipsisText='...'] {string} Display text for ellipsis.
 			@property [moreText='Show more'] {string} Display text for more link.
 			@property [lessText='Show less'] {string} Display text for less link.
+			@property [andNext=''] {string} Selector for any following tags to include in the collapse.
 			@property [onChange=null] {changeCallback} Callback function when expanded/collapsed.
 			@example onChange: function(expanding) {
  	console.log('Showing ' + (expanding ? 'more' : 'less'));
  } */
 		defaultOptions: {
-			length: 100, // Truncation length
-			leeway: 5, // Overrun allowed without truncation
-			wordBreak: false, // True to break between words, false to break anywhere
-				ignoreTags: ['br', 'hr', 'img'], // Non-terminated tags to ignore
-			toggle: true, // True to toggle, false to display and exit
-			ellipsisText: '...', // Display text for ellipsis
-			moreText: 'Show more', // Display text for more link
-			lessText: 'Show less', // Display text for less link
-			onChange: null // Callback function when expanded/collapsed
+			length: 100,
+			leeway: 5,
+			wordBreak: false,
+			ignoreTags: ['br', 'hr', 'img'],
+			toggle: true,
+			ellipsisText: '...',
+			moreText: 'Show more',
+			lessText: 'Show less',
+			andNext: '',
+			onChange: null
 		},
 
 		_ellipsisClass: pluginName + '-ellipsis', // The ellipsis marker class
@@ -59,24 +61,15 @@
 		
 		_tagName: /^<(\w+).*>$/, // Extract a tag name
 
-		/** Retrieve additional instance settings.
-			@private
-			@param elem {jQuery} The current jQuery element.
-			@param options {object} The instance options.
-			@return {object} Any extra instance values. */
 		_instSettings: function(elem, options) {
 			return {html: elem.html()};
 		},
-
-		/** Plugin specific options processing.
-			@private
-			@param elem {jQuery} The current jQuery element.
-			@param inst {object} The instance settings.
-			@param options {object} The new options. */
+		
 		_optionsChanged: function(elem, inst, options) {
 			var self = this;
 			$.extend(inst.options, options);
 			this._preDestroy(elem, inst); // Reset
+			var html = '';
 			if (elem.text().length > inst.options.length + inst.options.leeway) { // If text is longer
 				var matches = elem.html().match(/(<[^>]+>)|([^<]+)/g); // Extract text and tags
 				var i = 0;
@@ -112,16 +105,24 @@
 					return html;
 				};
 				// Generate new content
-				var html = matches.slice(0, i).join('') + matches[i].substring(0, pos) + closeTags(tags) +
+				html = matches.slice(0, i).join('') + matches[i].substring(0, pos) + closeTags(tags) +
 					'<span class="' + this._ellipsisClass + '">' + inst.options.ellipsisText + '</span>' +
 					'<span class="' + this._hiddenClass + '">' + tags.join('') + 
-					matches[i].substring(pos) + closeTags(tags) + matches.slice(i + 1).join('') + '</span>' +
-					'<a href="#" class="' + this._linkClass + '">' + inst.options.moreText + '</a>';
+					matches[i].substring(pos) + closeTags(tags) + matches.slice(i + 1).join('') + '</span>';
+			}
+			else if (options.andNext && elem.nextAll(options.andNext).length) {
+				html = elem.html();
+			}
+			if (html) {
+				html += '<a href="#" class="' + this._linkClass + '">' + inst.options.moreText + '</a>';
 				elem.html(html).find('a.' + this._linkClass).click(function(event) {
 					var link = $(this);
 					var expanding = link.html() === inst.options.moreText;
 					link.html(expanding ? inst.options.lessText : inst.options.moreText).
 						siblings('span.' + self._ellipsisClass + ',span.' + self._hiddenClass).toggle();
+					if (options.andNext) {
+						link.parent().nextAll(options.andNext).toggle();
+					}
 					if (!inst.options.toggle) { // Once only
 						link.remove();
 					}
@@ -131,15 +132,17 @@
 					event.stopPropagation();
 					return false;
 				});
+				if (options.andNext) {
+					elem.nextAll(options.andNext).hide();
+				}
 			}
 		},
 
-		/** Plugin specific pre destruction.
-			@private
-			@param elem {jQuery} The current jQuery element.
-			@param inst {object} The instance settings. */
 		_preDestroy: function(elem, inst) {
 			elem.html(inst.html);
+			if (inst.options.andNext) {
+				elem.nextAll(inst.options.andNext).show();
+			}
 		}
 	});
 
